@@ -75,16 +75,18 @@ void readMatrixValues(int** origMatrix, int row, int col){
     }
 }
 
-void makeFilter(int **origMatrix,int **newMatrix, PGMFileParameters fileParams){
+void makeFilter(int mytid, int fileRows, int fileCols, int numOfRows, int** filter, int** origMatrix){
+    int startRow = numOfRows * mytid;
     double newCellValue = 1,newCellValue2;
     float power = 0.1111111111;
-    for(int currRow = 0; currRow<fileParams.row; currRow++){
-        for (int currCol = 0; currCol < fileParams.col + 2; currCol++) {
+    int filterIdx = 0 ;
+    for(int currRow = startRow; currRow<fileRows; currRow++){
+        for (int currCol = 0; currCol < fileCols + 2; currCol++) {
             for (int rowTmp = currRow - 1; rowTmp < currRow + 2; rowTmp++) {
-                if (rowTmp < 0 || rowTmp > fileParams.row - 1)
+                if (rowTmp < 0 || rowTmp > fileRows - 1)
                     continue;
                 for (int colTmp = currCol- 1; colTmp < currCol + 2; colTmp++) {
-                    if (colTmp < 0 || colTmp > fileParams.col - 1)
+                    if (colTmp < 0 || colTmp > fileCols - 1)
                         continue;
                     int observedCellValue = origMatrix[rowTmp][colTmp];
                     newCellValue = newCellValue * observedCellValue;
@@ -92,12 +94,11 @@ void makeFilter(int **origMatrix,int **newMatrix, PGMFileParameters fileParams){
             }
             newCellValue = pow(newCellValue, power);
             int newCellValueInt = newCellValue;
-            newMatrix[currRow][currCol] = newCellValueInt;
+            filter[filterIdx] = newCellValueInt;
+            filterIdx++;
             newCellValue = 1;
         }
     }
-
-    free (origMatrix);
 }
 
 void writeNewMatrixToFile(int **newMatrix, PGMFileParameters fileParams){
@@ -146,15 +147,31 @@ int main(int argc, char **argv) {
         int fileParamsFOrSend[3] = {fileParams.numOfRowsForEachProcess,fileParams.row,fileParams.col};
 
 
-        MPI_Bcast(fileParamsFOrSend, 1, MPI_INT, 0, MPI_COMM_WORLD)‏;
+        MPI_Bcast(fileParamsFOrSend, 3, MPI_INT, 0, MPI_COMM_WORLD)‏;
 
-while (numOfProcWaitingReceive > 0){
-    MPI_Recv(myLongArray[fileParams.col * fileParams.numOfRowsForEachProcess *(nproc - numOfProcWaitingReceive)], fileParams.col * fileParams.numOfRowsForEachProcess , MPI_INT, (nproc - numOfProcWaitingReceive), 1, MPI_COMM_WORLD, &status);
-}
+    while (numOfProcWaitingReceive > 0){
+        MPI_Recv(myLongArray[fileParams.col * fileParams.numOfRowsForEachProcess *(nproc - numOfProcWaitingReceive)], fileParams.col * fileParams.numOfRowsForEachProcess , MPI_INT, (nproc - numOfProcWaitingReceive), 1, MPI_COMM_WORLD, &status);
+    }
 
-
+        readMatrixValues(origMatrix, fileParams.row, fileParams.col);
         makeFilter(origMatrix, newMatrix, fileParams);
         writeNewMatrixToFile(newMatrix, fileParams);
+    }
+    else{//slave
+        int err = MPI_Recv(buff, //void *buf
+                 count ,//int count
+                 MPI_INT,//MPI_Datatype datatype
+                 source,//int source,
+                 1,// int tag
+                 MPI_COMM_WORLD, //MPI_Comm comm
+                 &status); //MPI_Status *status
+
+        int numOfRows = buff[0];
+        int fileRows = buff[1];
+        int fileCols = buff[2];
+        int filter[numOfRows*col];
+        makeFilter(mytid, fileRows, fileCols, numOfRows, filter, origMatrix);
+        MPI_Bcast(filter, numOfRows*col, MPI_INT, 0, MPI_COMM_WORLD)‏;
     }
 
     return 0;
