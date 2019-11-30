@@ -1,4 +1,6 @@
-/snap/clion/97/bin/cmake/linux/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" /home/amir/CLionProjects/ParallelAss1
--- Configuring done
--- Generating done
--- Build files have been written to: /home/amir/CLionProjects/ParallelAss1/cmake-build-debug
+"C:\Program Files\JetBrains\CLion 2017.2.3\bin\cmake\bin\cmake.exe" -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - MinGW Makefiles" "G:\האחסון שלי\לימודים\שנה ד\עיבוד מקבילי\Assign1\ParallelAss1"
+CMake Error at CMakeLists.txt:1 (cmake_minimum_required):
+  CMake 3.15 or higher is required.  You are running version 3.8.2
+
+
+-- Configuring incomplete, errors occurred!
