@@ -118,7 +118,8 @@ void writeNewMatrixToFile(int **newMatrix, PGMFileParameters fileParams){
 int main(int argc, char **argv) {
     int mytid, nproc;
     int MASTER = 0;
-    int tag = 99;
+    int tag = 1;
+    int **origMatrix;
     MPI_Status status;
 
 
@@ -127,35 +128,49 @@ int main(int argc, char **argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);
     printf("MPI task ID = %d\n", mytid);
     if (mytid == 0) {//manager
-        int **origMatrix, **newMatrix, numOfProcWaitingReceive = 0;
+         int **newMatrix, numOfProcWaitingReceive = 0;
         if (nproc > 1){
             numOfProcWaitingReceive = nproc - 1;
-    }
+        }
         PGMFileParameters fileParams = readPGM();
-        fileParams.numOfRowsForEachProcess = (int)floor(fileParams.row / nproc);
-        int numberOfLinesForManager =  fileParams.row % nproc;
+
         origMatrix = malloc(fileParams.row * sizeof *origMatrix);
         newMatrix = malloc(fileParams.row * sizeof *newMatrix);
         for (int i = 0; i < fileParams.row; i++) {
             origMatrix[i] = malloc(fileParams.col * sizeof *origMatrix[i]);
             newMatrix[i] = malloc(fileParams.col * sizeof *newMatrix[i]);
         }
+        fileParams.numOfRowsForEachProcess = (int)floor(fileParams.row / (nproc - 1));
+        int numberOfLinesForManager =  fileParams.row % nproc;
         int myLongArray[fileParams.row * fileParams.col];
         int sizeForReceive = fileParams.numOfRowsForEachProcess * fileParams.col;
-
-        readMatrixValues(origMatrix, fileParams.row, fileParams.col);
         int fileParamsFOrSend[3] = {fileParams.numOfRowsForEachProcess,fileParams.row,fileParams.col};
 
-
-        MPI_Bcast(fileParamsFOrSend, 3, MPI_INT, 0, MPI_COMM_WORLD)‏;
-
-    while (numOfProcWaitingReceive > 0){
-        MPI_Recv(myLongArray[fileParams.col * fileParams.numOfRowsForEachProcess *(nproc - numOfProcWaitingReceive)], fileParams.col * fileParams.numOfRowsForEachProcess , MPI_INT, (nproc - numOfProcWaitingReceive), 1, MPI_COMM_WORLD, &status);
-    }
-
         readMatrixValues(origMatrix, fileParams.row, fileParams.col);
-        makeFilter(origMatrix, newMatrix, fileParams);
-        writeNewMatrixToFile(newMatrix, fileParams);
+
+
+
+        MPI_Bcast(fileParamsFOrSend, 3, MPI_INT, 0, MPI_COMM_WORLD);
+
+        while (numOfProcWaitingReceive > 0){
+            MPI_Recv(myLongArray[fileParams.col * fileParams.numOfRowsForEachProcess *(nproc - numOfProcWaitingReceive)], sizeForReceive , MPI_INT, (nproc - numOfProcWaitingReceive), 1, MPI_COMM_WORLD, &status);
+            numOfProcWaitingReceive = numOfProcWaitingReceive - 1;
+        }
+
+        FILE *fd = fopen("../newMatrix2.txt", "wb");
+
+        for (int i = 0; i < (fileParams.row * fileParams.col); i++) {
+            fprintf(fd, "%d ", myLongArray[i]);
+            if (i > 0 && i % fileParams.col == 0)
+                fprintf(fd, "\n");
+        }
+            fprintf(fd, "\n");
+
+      //  if (numberOfLinesForManager > 0)
+            //makeFilter()
+
+        free(newMatrix);
+        fclose(fd);
     }
     else{//slave
         int err = MPI_Recv(buff, //void *buf
@@ -174,110 +189,5 @@ int main(int argc, char **argv) {
         MPI_Bcast(filter, numOfRows*col, MPI_INT, 0, MPI_COMM_WORLD)‏;
     }
 
-    return 0;
+return 0;
 }
-
-
-
-
-
-//
-//void func(int** origMatrix, int** array, PGMFileParameters file)
-//{
-//
-//    for (int i=0; i<file.row; i++)
-//    {
-//        for (int j=0; j<file.col; j++)
-//        {
-//            array[i][j] = i*j;
-//            origMatrix[i][j] = i*j;
-//        }
-//    }
-//}
-//
-//void funcTmp(int **origMatrix, PGMFileParameters file){
-//    origMatrix =  malloc(file.row * sizeof *origMatrix);
-//    for (int i=0; i<file.row; i++)
-//    {
-//        origMatrix[i] = malloc(file.col * sizeof *origMatrix[i]);
-//    }
-//}
-//
-//int main()
-//{
-//    int rows = 10, cols =15, i;
-//    PGMFileParameters file;
-//    file.row = 10; file.col = 15;
-//    int **origMatrix, **x;
-//
-//    /* obtain values for rows & cols */
-//
-//    /* allocate the array */
-//    x = malloc(rows * sizeof *x);
-//    for (i=0; i<rows; i++)
-//    {
-//        x[i] = malloc(cols * sizeof *x[i]);
-//    }
-//funcTmp(origMatrix,file);
-//    /* use the array */
-//
-//    func(origMatrix, x, file);
-//
-//    /* deallocate the array */
-//    for (i=0; i<rows; i++)
-//    {
-//        free(x[i]);
-//    }
-//    free(x);
-//}
-
-//////
-//////struct Matrix{
-//////    int matrix[3][3];
-//////};
-//////
-//////struct Matrix createMatrix(){
-//////    struct Matrix matrix = {
-//////            {
-//////                    {1, 2, 3},
-//////                    {4, 5, 6},
-//////                    {7, 8, 9}
-//////            }
-//////    };
-//////    return matrix;
-//////}
-//////struct Matrix OrigMatrix = createMatrix();
-//////struct Matrix newMatrix;
-//////for (int i = 0; i<3; i++){
-//////for(int j = 0; j<3; j++){
-//////newMatrix.matrix[i][j] = newCellValue(i, j, OrigMatrix);
-//////}
-//////}
-//////printMatrix(newMatrix);
-//////
-//////
-//////
-//////
-//////void printMatrix(struct Matrix mat){
-//////    for (int i = 0; i<3; i++){
-//////        for(int j = 0; j<3; j++){
-//////            printf("%d      ",mat.matrix[i][j]);
-//////        }
-//////        printf("\n");
-//////    }
-//////}
-//////
-//////int newCellValue(int col, int row, struct Matrix origMat){
-//////    int newCellValue = 1;
-//////    for(int colTmp = col -1; colTmp<col+2; colTmp++){
-//////        if(colTmp < 0 || colTmp > 2)
-//////            continue;
-//////        for(int rowTmp = row -1; rowTmp<row+2; rowTmp++){
-//////            if(rowTmp < 0 || rowTmp > 2)
-//////                continue;
-//////            int observedCellValue = origMat.matrix[colTmp][rowTmp];
-//////            newCellValue = newCellValue * observedCellValue;
-//////        }
-//////    }
-//////    return newCellValue;
-//////}
