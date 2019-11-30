@@ -76,7 +76,7 @@ void readMatrixValues(int** origMatrix, int row, int col){
 }
 
 void makeFilter(int mytid, int fileRows, int fileCols, int numOfRows, int** filter, int** origMatrix){
-    int startRow = numOfRows * mytid;
+    int startRow = numOfRows * (mytid-1);
     double newCellValue = 1,newCellValue2;
     float power = 0.1111111111;
     int filterIdx = 0 ;
@@ -173,20 +173,34 @@ int main(int argc, char **argv) {
         fclose(fd);
     }
     else{//slave
-        int err = MPI_Recv(buff, //void *buf
+        int err = MPI_Recv(
+                 buff, //void *buf
                  count ,//int count
                  MPI_INT,//MPI_Datatype datatype
                  source,//int source,
                  1,// int tag
                  MPI_COMM_WORLD, //MPI_Comm comm
                  &status); //MPI_Status *status
-
+        if(err != MPI_SUCCESS){
+            printf("MPI_Recv Error %d, process %d exit.",err,mytid);
+            return err;
+        }
         int numOfRows = buff[0];
         int fileRows = buff[1];
         int fileCols = buff[2];
         int filter[numOfRows*col];
         makeFilter(mytid, fileRows, fileCols, numOfRows, filter, origMatrix);
-        MPI_Bcast(filter, numOfRows*col, MPI_INT, 0, MPI_COMM_WORLD)‏;
+        err = MPI_Send(
+                       filter, //void *buf
+                       numOfRows*col,//int count
+                       MPI_INT,//MPI_Datatype datatype
+                       0, // int dest
+                       1,// int tag
+                       MPI_COMM_WORLD);//MPI_Comm comm
+        if(err != MPI_SUCCESS){
+            printf("MPI_Send Error %d, process %d exit.",err,mytid);
+            return err;
+        }
     }
 
 return 0;
