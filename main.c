@@ -117,8 +117,6 @@ void writeNewMatrixToFile(int **newMatrix, PGMFileParameters fileParams){
 
 int main(int argc, char **argv) {
     int mytid, nproc;
-    int MASTER = 0;
-    int tag = 1;
     int **origMatrix;
     MPI_Status status;
 
@@ -128,19 +126,19 @@ int main(int argc, char **argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);
     printf("MPI task ID = %d\n", mytid);
     if (mytid == 0) {//manager
-         int **newMatrix, numOfProcWaitingReceive = 0;
+        int numOfProcWaitingReceive = 0;
         if (nproc > 1){
             numOfProcWaitingReceive = nproc - 1;
         }
         PGMFileParameters fileParams = readPGM();
 
         origMatrix = malloc(fileParams.row * sizeof *origMatrix);
-        newMatrix = malloc(fileParams.row * sizeof *newMatrix);
-        for (int i = 0; i < fileParams.row; i++) {
+        for (int i = 0; i < fileParams.row; i++)
             origMatrix[i] = malloc(fileParams.col * sizeof *origMatrix[i]);
-            newMatrix[i] = malloc(fileParams.col * sizeof *newMatrix[i]);
-        }
-        fileParams.numOfRowsForEachProcess = (int)floor(fileParams.row / (nproc - 1));
+        if (numOfProcWaitingReceive == 0)
+            fileParams.numOfRowsForEachProcess = (int)floor(fileParams.row / nproc);
+        else
+            fileParams.numOfRowsForEachProcess = (int)floor(fileParams.row / (nproc - 1));
         int numberOfLinesForManager =  fileParams.row % nproc;
         int myLongArray[fileParams.row * fileParams.col];
         int sizeForReceive = fileParams.numOfRowsForEachProcess * fileParams.col;
@@ -149,12 +147,19 @@ int main(int argc, char **argv) {
         readMatrixValues(origMatrix, fileParams.row, fileParams.col);
 
 
-
-        MPI_Bcast(fileParamsFOrSend, 3, MPI_INT, 0, MPI_COMM_WORLD);
+        if (numOfProcWaitingReceive > 0)
+            MPI_Bcast(fileParamsFOrSend, 3, MPI_INT, 0, MPI_COMM_WORLD);
 
         while (numOfProcWaitingReceive > 0){
             MPI_Recv(myLongArray[fileParams.col * fileParams.numOfRowsForEachProcess *(nproc - numOfProcWaitingReceive)], sizeForReceive , MPI_INT, (nproc - numOfProcWaitingReceive), 1, MPI_COMM_WORLD, &status);
             numOfProcWaitingReceive = numOfProcWaitingReceive - 1;
+        }
+
+        if (numberOfLinesForManager > 0){
+            int filter [numberOfLinesForManager * fileParams.col];
+            makeFilter(nproc, fileParams.row, fileParams.col, numberOfLinesForManager, filter, origMatrix);
+            for (int index = 0; index < numberOfLinesForManager; index++ )
+                myLongArray[fileParams.row - numberOfLinesForManager + index] = filter[index];
         }
 
         FILE *fd = fopen("../newMatrix2.txt", "wb");
@@ -164,22 +169,18 @@ int main(int argc, char **argv) {
             if (i > 0 && i % fileParams.col == 0)
                 fprintf(fd, "\n");
         }
-            fprintf(fd, "\n");
+        fprintf(fd, "\n");
 
-      //  if (numberOfLinesForManager > 0)
-            //makeFilter()
-
-        free(newMatrix);
         fclose(fd);
     }
     else{//slave
         int err = MPI_Recv(buff, //void *buf
-                 count ,//int count
-                 MPI_INT,//MPI_Datatype datatype
-                 source,//int source,
-                 1,// int tag
-                 MPI_COMM_WORLD, //MPI_Comm comm
-                 &status); //MPI_Status *status
+                           count ,//int count
+                           MPI_INT,//MPI_Datatype datatype
+                           source,//int source,
+                           1,// int tag
+                           MPI_COMM_WORLD, //MPI_Comm comm
+                           &status); //MPI_Status *status
 
         int numOfRows = buff[0];
         int fileRows = buff[1];
@@ -189,5 +190,5 @@ int main(int argc, char **argv) {
         MPI_Bcast(filter, numOfRows*col, MPI_INT, 0, MPI_COMM_WORLD)‏;
     }
 
-return 0;
+    return 0;
 }
