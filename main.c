@@ -174,8 +174,11 @@ int main(int argc, char **argv) {
         fclose(fd);
     }
     else{//slave
+        int* buf;
+        int count;
+        int source;
         int err = MPI_Recv(
-                 buff, //void *buf
+                 buf, //void *buf
                  count ,//int count
                  MPI_INT,//MPI_Datatype datatype
                  source,//int source,
@@ -186,14 +189,14 @@ int main(int argc, char **argv) {
             printf("MPI_Recv Error %d, process %d exit.",err,mytid);
             return err;
         }
-        int numOfRows = buff[0];
-        int fileRows = buff[1];
-        int fileCols = buff[2];
-        int filter[numOfRows*col];
+        int numOfRows = buf[0];
+        int fileRows = buf[1];
+        int fileCols = buf[2];
+        int filter[numOfRows*fileCols];
         makeFilter(mytid, fileRows, fileCols, numOfRows, filter, origMatrix);
         err = MPI_Send(
                        filter, //void *buf
-                       numOfRows*col,//int count
+                       numOfRows*fileCols,//int count
                        MPI_INT,//MPI_Datatype datatype
                        0, // int dest
                        1,// int tag
