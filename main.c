@@ -142,11 +142,17 @@ int main(int argc, char **argv) {
         int myLongArray[fileParams.row * fileParams.col];
         int sizeForReceive = fileParams.numOfRowsForEachProcess * fileParams.col;
 
+        readMatrixValues(origMatrix, fileParams.row, fileParams.col);
+        int fileParamsFOrSend[3] = {fileParams.numOfRowsForEachProcess,fileParams.row,fileParams.col};
+
+
+        MPI_Bcast(fileParamsFOrSend, 1, MPI_INT, 0, MPI_COMM_WORLD)‏;
+
 while (numOfProcWaitingReceive > 0){
     MPI_Recv(myLongArray[fileParams.col * fileParams.numOfRowsForEachProcess *(nproc - numOfProcWaitingReceive)], fileParams.col * fileParams.numOfRowsForEachProcess , MPI_INT, (nproc - numOfProcWaitingReceive), 1, MPI_COMM_WORLD, &status);
 }
 
-        readMatrixValues(origMatrix, fileParams.row, fileParams.col);
+
         makeFilter(origMatrix, newMatrix, fileParams);
         writeNewMatrixToFile(newMatrix, fileParams);
     }
