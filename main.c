@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <math.h>
 #include "/usr/include/mpi/mpi.h"
 #include <malloc.h>
@@ -135,6 +134,7 @@ int main(int argc, char **argv) {
         origMatrix = malloc(fileParams.row * sizeof *origMatrix);
         for (int i = 0; i < fileParams.row; i++)
             origMatrix[i] = malloc(fileParams.col * sizeof *origMatrix[i]);
+
         if (numOfProcWaitingReceive == 0)
             fileParams.numOfRowsForEachProcess = (int)floor(fileParams.row / nproc);
         else
@@ -206,6 +206,6 @@ int main(int argc, char **argv) {
             return err;
         }
     }
-
+//amir
     return 0;
 }
